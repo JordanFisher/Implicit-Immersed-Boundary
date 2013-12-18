@@ -6,12 +6,12 @@ def JaffrinMeanFlow(chi, alpha):
     """Calculate the mean flow for a channel with aspect ratio alpha and occlusion ratio chi
     via Jaffrin's assymptotic formula."""
 
-    if hasattr(x, '__iter__'):
-        x = m.array(x)
-
     a = alpha
     x = chi
 
+    if hasattr(x, '__iter__'):
+        x = m.array(x)    
+    
     num = 15. * x**2 + 2. * a**2 * (4. * (1. - x**2)**2.5 + (7. * x**2 - 4.) * (1. - x**2))
     denom = x * (5. * (2. + x**2) + 6. * a**2 * x**2 * (1 - x**2))
 
@@ -241,9 +241,17 @@ class PeristalticPump2D(Tethered):
 
         return AdditionalPlot, ModVal
 
-    def FieldPlot(self, fluid, field, Mask = True):
+    def VectorPlot(self, fluid, Mask=True):
         AdditionalPlot, ModVal = self.MakeModFuncs(fluid, Mask)
-        fluid.Plot2D(field=field, additional=AdditionalPlot, mod=ModVal)
+        v = fluid.u.copy()
+        #v[...,0] = ModVal(v[...,0])
+        #v[...,1] = ModVal(v[...,1])
+        fluid.PlotVectorField(v)
+        AdditionalPlot()
+    
+    def FieldPlot(self, fluid, field, Mask=True, Colorbar=True, colorbar_kwargs={}):
+        AdditionalPlot, ModVal = self.MakeModFuncs(fluid, Mask)
+        fluid.Plot2D(field=field, additional=AdditionalPlot, mod=ModVal, Colorbar=Colorbar, colorbar_kwargs=colorbar_kwargs)
         
     def StressPlot(self, fluid, Mask = True):			
         AdditionalPlot, ModVal = self.MakeModFuncs(fluid, Mask)

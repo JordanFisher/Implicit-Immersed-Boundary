@@ -21,6 +21,7 @@ void print(char *format, float v1, float v2, float v3, float v4);
 // Print an array to the Python console
 void print(int *a, int n);
 
+double abs(double x);
 int min(int a, int b);
 int max(int a, int b);
 int max(int *a, int n);

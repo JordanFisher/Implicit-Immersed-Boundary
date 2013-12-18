@@ -7,7 +7,7 @@ void print(char* str)
     PyObject* pyout = PyObject_GetAttrString(sysmod, "stdout");
     PyObject* result = PyObject_CallMethod(pyout, "write", "s", str);
     Py_XDECREF(result);
-    Py_XDECREF(stdout);
+    Py_XDECREF(pyout);
     Py_XDECREF(sysmod);
 }
 
@@ -65,6 +65,8 @@ T max(T *a, T n)
 
 	return current_max;
 }*/
+
+double abs(double x) { return x < 0 ? -x : x; }
 
 int min(int a, int b) { return a < b ? a : b; }
 

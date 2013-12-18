@@ -30,19 +30,34 @@ class Fluid:
 			self.Dim = Dim = len(N)
 		else:
 			self.Dim = Dim
-		
+
 		self.dt = float(dt)
 		self.N, self.dims = array(N[:Dim], int32), array(dims[:Dim], float64)
 		self.h = self.dims / self.N
 		self.rho, self.mu = float(rho), float(mu)
-		self.Symbols = Symbols.InitSymbols(self.N, self.h)
 		self.DeltaType = DeltaType
 
 		self.ConvectionMethod = ConvectionMethod
 		
-		self.Lookup = None # Used to store a lookup table for the Spread/Interpolated Stokes Greens function
+		ScalarDim, VectorDim, MatrixDim = self.FieldDims()
+			
+		self.u = zeros(VectorDim,float64)	 	# The fluid velocity vector field
+
+		self.MakeWorkVars()
+
+	def ConstitutiveName(self):
+		return 'Stokes'
 		
-		if Dim == 2:
+	def DimName(self):
+		if self.Dim == 2:
+			return '2D'
+		else:
+			return '3D'
+    
+	def FieldDims(self):
+		N = self.N
+		
+		if self.Dim == 2:
 			ScalarDim = (N[0],N[1])
 			VectorDim = (N[0],N[1],2)
 			MatrixDim = (N[0],N[1],2,2)
@@ -50,8 +65,17 @@ class Fluid:
 			ScalarDim = (N[0],N[1],N[2])
 			VectorDim = (N[0],N[1],N[2],3)
 			MatrixDim = (N[0],N[1],N[2],3,3)
+
+		return ScalarDim, VectorDim, MatrixDim
 		
-		self.u = zeros(VectorDim,float64)	 	# The fluid velocity vector field
+	def MakeWorkVars(self):
+		"""Create working variables used in the fluid solver."""
+		
+		ScalarDim, VectorDim, MatrixDim = self.FieldDims()
+		
+		self.Lookup = None # Used to store a lookup table for the Spread/Interpolated Stokes Greens function
+		self.Symbols = Symbols.InitSymbols(self.N, self.h)
+
 		self.du = zeros(MatrixDim,float64)		# The fluid total derivative (difference) matrix field
 		self.p = zeros(ScalarDim,float64)		# The fluid pressure scalar field
 		self.c = zeros(VectorDim,float64)	 	# The current timestep's explicit terms, a vector field
@@ -68,7 +92,7 @@ class Fluid:
 		self.tempscl_real = zeros(ScalarDim,float64)	# A scalar field for storing temporary values
 
 		self.Output_u = self.u.copy()	# The output of the fluid solver, not associated with the actual evolution of the fluid
-	
+		
 	def GetGrid(self):
 		"""Returns a grid storing the indexical coordinates of each point in the Eulerian grid."""
 		
@@ -212,7 +236,7 @@ class Fluid:
 				raise Exception("Unknown convection method specified.")
 				
 			temp *= -rho
-			temp += f
+			temp += f;
 			temp *= dt
 			val = rho * u
 			val += temp
@@ -374,7 +398,7 @@ class Fluid:
 		
 		self.Plot2D(field = f)
 		
-	def Plot2D(self, plot = PlotStyle.magnitude, Colorbar = True, field = None, additional=None, mod=None):
+	def Plot2D(self, plot = PlotStyle.magnitude, Colorbar=True, field=None, additional=None, mod=None, colorbar_kwargs={}):
 		"""Plot the current fluid.
 		If 'field' is specified then 'field' is plotted, otherwise a component or function of the fluid is plotted,
 		acoording to the plot parameter."""
@@ -416,23 +440,33 @@ class Fluid:
 		
 		if mod != None: val = mod(val)
 		m.imshow(val.T, interpolation='bilinear', extent=self.Extent(), origin='lower')
+		#m.contour(val.T, interpolation='bilinear', extent=self.Extent(), origin='lower')
 
-		if Colorbar: m.colorbar(format='%0.5f')
+		if Colorbar: m.colorbar(**colorbar_kwargs)
 		if additional != None: additional()
 		
 	def PlotVectorField(self, f):
 		coords = self.GetCoordinates()
 				
 		N = self.N
-		PlotN = min(32, N[0])
+		#PlotN = min(32, N[0])
+		PlotN = min(24, N[0])
 		
 		coords = coords[:,::N[0]/PlotN,::N[1]/PlotN]
 		f = f[::N[0]/PlotN,::N[1]/PlotN]
 		
-		m.quiver(coords[0], coords[1], f[...,0], f[...,1])
+		#m.quiver(coords[0], coords[1], f[...,0], f[...,1], pivot='mid', color='r')
+		m.quiver(coords[0], coords[1], f[...,0], f[...,1], pivot='mid')
 		
 	def __getstate__(self):
 		d = dict(self.__dict__)
-		del d['Lookup'], d['du'], d['f'], d['Symbols'], d['p'], d['c'], d['u_Hat'], d['p_Hat'], d['c_Hat'], d['tempvec_complex'], d['tempscl_complex'], d['Output_u']
+		del d['Lookup'], d['du'], d['f'], d['Symbols'], d['p'], d['c'], d['u_Hat'], d['p_Hat'], d['c_Hat'], d['tempvec_complex'], d['tempscl_complex'], d['Output_u'], d['tempscl_real'], d['tempvec_real']
+		
 
 		return d
+	
+	def __setstate__(self, dict):
+		self.__dict__ = dict
+	
+		self.MakeWorkVars()
+	

@@ -237,7 +237,8 @@ static PyObject* cComputeMatrix (PyObject *self, PyObject *args)
 
 	ComputeMatrix(Dim, X, _N, Nb, _h, hb, G, A, band, MatrixOfTensors);
 
-	delete[] _N, _h;
+	delete[] _N;
+  delete[] _h;
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -375,7 +376,8 @@ static PyObject* cWholeGridSpread(PyObject *self, PyObject *args)
 		return NULL;
 	}
 
-	delete _N, _h;
+	delete[] _N;
+  delete[] _h;
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -521,7 +523,8 @@ static PyObject* cFiberToGrid (PyObject *self, PyObject *args)
 		return NULL;
 	}
 
-	delete _N, _h;
+	delete[] _N;
+  delete[] _h;
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -656,7 +659,8 @@ static PyObject* cGridToFiber(PyObject *self, PyObject *args)
 		return NULL;
 	}
 
-	delete _N, _h;
+	delete[] _N;
+  delete[] _h;
 
 	Py_INCREF(Py_None);
 	return Py_None;

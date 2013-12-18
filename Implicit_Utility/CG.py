@@ -18,10 +18,8 @@ def CG (x, b, f, Tolerance = 10e-8, MaxReps = 1000, ShowProgress = False, Callba
     z = f(w)
 
     a = Dot(r, w) / Dot(w, z)
-    
-    print "!!!", abs(x).max(), a, abs(w).max()
+
     x = x + a * w
-    print "!!!", abs(x).max()
 
     Reps = 1
 

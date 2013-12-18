@@ -125,8 +125,30 @@ class ViscoFluid(Fluid):
 		else:
 			raise Exception("Dim, the dimension of the fluid domain, must be either 2 or 3.")
 		
-		# The various array dimensions for scalar/vector/matrix fields, depending on the spatial dimension of the fluid domain.
-		if Dim == 2:
+		ScalarDim, VectorDim, SymMatrixDim, dSDim = self.ViscoFieldDims()
+				
+		self.W = float(W)  # The Weissenberg number
+		self.B = float(B)  # beta
+		self.L = float(L)  # Maximum extension length for FENE
+		self.S = zeros(SymMatrixDim,float64) # The polymeric stress (or conformation tensor), with 6 components at each material point (a 3x3 symmetric matix)
+		
+		# Initialize the stress (or conformation tensor)
+		self.S[...] =  self.MySymmetricHelper.identity() # Initial value is the 2x2 (3x3) identity matrix
+		
+		self.ArtificialDiffusion = self.h[0]**2
+
+	def ConstitutiveName(self):
+		if self.W == 0:
+			return Fluid.ConstitutiveName(self)
+		else:
+			return ConstitutiveEqns.Name[self.ConstitutiveEqn]
+
+	def ViscoFieldDims(self):
+		"""The various array dimensions for scalar/vector/matrix fields, depending on the spatial dimension of the fluid domain."""
+		
+		N = self.N
+		
+		if self.Dim == 2:
 			ScalarDim = (N[0],N[1])
 			VectorDim = (N[0],N[1],2)
 			SymMatrixDim = (N[0],N[1],3)
@@ -136,26 +158,20 @@ class ViscoFluid(Fluid):
 			VectorDim = (N[0],N[1],N[2],3)
 			SymMatrixDim = (N[0],N[1],N[2],6)
 			dSDim = (N[0],N[1],N[2],6,3)
+			
+		return ScalarDim, VectorDim, SymMatrixDim, dSDim
+
+	def MakeWorkVars(self):
+		"""Create working variables used in the fluid solver."""
 		
-		self.W = float(W)  # The Weissenberg number
-		self.B = float(B)  # beta
-		self.L = float(L)  # Maximum extension length for FENE
-		self.S = zeros(SymMatrixDim,float64) # The polymeric stress (or conformation tensor), with 6 components at each material point (a 3x3 symmetric matix)
-		self.CurrentStress = None # The actual polymeric stress, calculated from the conformation tensor
+		Fluid.MakeWorkVars(self)
 		
-		# Initialize the stress (or conformation tensor)
-		if self.ConstitutiveEqn == ConstitutiveEqns.OB_Chrispell or self.ConstitutiveEqn == ConstitutiveEqns.OB_TeranFauciShelley:
-			self.S[...] =  self.MySymmetricHelper.identity() # Initial value is the 2x2 (3x3) identity matrix
-		else:
-			self.S[...] =  self.MySymmetricHelper.identity() # Initial value is the 2x2 (3x3) identity matrix
-			#self.S *= 0 # Initial value is the zero matrix
+		ScalarDim, VectorDim, SymMatrixDim, dSDim = self.ViscoFieldDims()
 		
 		self.dS = zeros(dSDim,float64) # The total derivative of S
-
 		self.g = zeros(SymMatrixDim,float64) # Used to update S
-		
-		self.ArtificialDiffusion = self.h[0]**2
-
+		self.CurrentStress = None # The actual polymeric stress, calculated from the conformation tensor
+			
 	def TensorGradient(self, f, df=None):
 		"""Calculate the gradient of a symmetric tensor field f and store it in df, if given."""
 		
@@ -518,9 +534,9 @@ class ViscoFluid(Fluid):
 		if UpdateStress and KeepUpdate:
 			self.UpdateS()
 
-
-	def PlotComponent(self, val, name, subplot, Colorbar, f, mod):
-		m.imshow(mod(val).T, interpolation='bilinear', extent=self.PlotExtent2D(), origin='lower')
+	def PlotComponent(self, val, name, subplot, Colorbar, f=None, mod=None, colorbar_kwargs={}):
+		if mod != None: val = mod(val)
+		m.imshow(val.T, interpolation='bilinear', extent=self.PlotExtent2D(), origin='lower')
 
 		self.SetPlotExtent()
 		
@@ -533,10 +549,10 @@ class ViscoFluid(Fluid):
 		# Add a subtitle
 		m.title(name)
 		
-		if Colorbar: m.colorbar(format='%0.5f')
+		if Colorbar: m.colorbar(**colorbar_kwargs)
 		if f != None: f()
 
-	def StressPlot(self, f=None, mod=None, Colorbar = True):
+	def StressPlot(self, f=None, mod=None, Colorbar=True, Wide=False):
 		"""Plot the components of the stress tensor.
 		
 		If the domain is 3D a 2D cross-section is plotted (z = N/2) and the xx/xy/yy/yz components are plotted.
@@ -558,19 +574,26 @@ class ViscoFluid(Fluid):
 			tau = tau[:,:,self.N[2]/2]
 			Components = [sym._xx, sym._xy, sym._yx, sym._yy]
 	
-		subplot = m.subplot(221)
-		self.PlotComponent(tau[:,:,Components[0]], sym.ComponentNames[Components[0]] + ' component', subplot, Colorbar, f, mod)
+		if Wide:
+			colorbar_kwargs = { 'shrink' : .333 * .9, 'format' : '%0.0f' }
+			#subplots = [141, 142, 143, 144]
+			subplots = [131, 133, 132]
+		else:
+			colorbar_kwargs = { 'shrink' : .95, 'format' : '%0.2f' }
+			subplots = [221, 222, 223, 224]
+			
+		subplot = m.subplot(subplots[0])
+		self.PlotComponent(tau[:,:,Components[0]], sym.ComponentNames[Components[0]] + ' component', subplot, Colorbar, f, mod, colorbar_kwargs)
 		
-		subplot = m.subplot(222)		
+		subplot = m.subplot(subplots[1])		
 		vorticity = self.Vorticity2dSlice()
-		self.PlotComponent(vorticity, 'Vorticity', subplot, Colorbar, f, mod)
-		#self.PlotComponent(tau[:,:,Components[1]], sym.ComponentNames[Components[1]] + ' component', subplot, Colorbar, f, mod)
+		self.PlotComponent(vorticity, 'Vorticity', subplot, Colorbar, f, mod, colorbar_kwargs)
 		
-		subplot = m.subplot(223)
-		self.PlotComponent(tau[:,:,Components[2]], sym.ComponentNames[Components[2]] + ' component', subplot, Colorbar, f, mod)
+		subplot = m.subplot(subplots[2])
+		self.PlotComponent(tau[:,:,Components[2]], sym.ComponentNames[Components[2]] + ' component', subplot, Colorbar, f, mod, colorbar_kwargs)
 		
-		subplot = m.subplot(224)
-		self.PlotComponent(tau[:,:,Components[3]], sym.ComponentNames[Components[3]] + ' component', subplot, Colorbar, f, mod)
+		subplot = m.subplot(subplots[3])
+		self.PlotComponent(tau[:,:,Components[3]], sym.ComponentNames[Components[3]] + ' component', subplot, Colorbar, f, mod, colorbar_kwargs)
 		
 	def StressDebug(self, f=None, mod=None, Colorbar = True):
 		sym = self.MySymmetricHelper

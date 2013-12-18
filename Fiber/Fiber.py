@@ -104,8 +104,7 @@ class Fiber:
 		if abs(self.X).max() > Limit:
 			print "Maximum fiber position norm is", abs(self.X).max()
 			str = "Simulation has exploded: the immersed boundary has moved past a set limit."
-			
-			raw_input(str)		
+				
 			raise Exception(str)
 
 	def Plot2D(self, **Scatter_args):
